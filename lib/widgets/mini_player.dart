@@ -38,7 +38,7 @@ class MiniPlayer extends StatelessWidget {
             return Column(
               children: [
                 // Progress indicator
-                StreamBuilder<PlaybackState>(
+                StreamBuilder<PlaybackStateModel>(
                   stream: provider.playbackStateStream,
                   builder: (context, snapshot) {
                     final progress = snapshot.data?.progress ?? 0.0;

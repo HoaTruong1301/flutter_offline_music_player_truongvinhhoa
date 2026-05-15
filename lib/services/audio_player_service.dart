@@ -1,30 +1,36 @@
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
 import 'package:rxdart/rxdart.dart';
+import 'audio_handler.dart';
 
 class AudioPlayerService {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  late MyAudioHandler _handler;
 
-  // Streams
-  Stream<Duration> get positionStream => _audioPlayer.positionStream;
-  Stream<Duration?> get durationStream => _audioPlayer.durationStream;
-  Stream<Duration> get bufferedPositionStream => _audioPlayer.bufferedPositionStream;
-  Stream<PlayerState> get playerStateStream => _audioPlayer.playerStateStream;
-  Stream<bool> get playingStream => _audioPlayer.playingStream;
-  Stream<LoopMode> get loopModeStream => _audioPlayer.loopModeStream;
-  Stream<bool> get shuffleModeEnabledStream => _audioPlayer.shuffleModeEnabledStream;
+  // Khởi tạo service với handler từ audio_service
+  void init(MyAudioHandler handler) {
+    _handler = handler;
+  }
 
-  // Current state getters
-  Duration get currentPosition => _audioPlayer.position;
-  Duration? get currentDuration => _audioPlayer.duration;
-  bool get isPlaying => _audioPlayer.playing;
+  // Streams lấy từ player của handler
+  Stream<Duration> get positionStream => _handler.player.positionStream;
+  Stream<Duration?> get durationStream => _handler.player.durationStream;
+  Stream<Duration> get bufferedPositionStream => _handler.player.bufferedPositionStream;
+  Stream<PlayerState> get playerStateStream => _handler.player.playerStateStream;
+  Stream<bool> get playingStream => _handler.player.playingStream;
+  Stream<LoopMode> get loopModeStream => _handler.player.loopModeStream;
+  Stream<bool> get shuffleModeEnabledStream => _handler.player.shuffleModeEnabledStream;
 
-  // Playback state stream combining position, duration, and playing state
-  Stream<PlaybackState> get playbackStateStream {
-    return Rx.combineLatest3<Duration, Duration?, bool, PlaybackState>(
+  // Getters
+  Duration get currentPosition => _handler.player.position;
+  bool get isPlaying => _handler.player.playing;
+
+  // Stream tổng hợp cho UI
+  Stream<PlaybackStateModel> get playbackStateStream {
+    return Rx.combineLatest3<Duration, Duration?, bool, PlaybackStateModel>(
       positionStream,
       durationStream,
       playingStream,
-      (position, duration, isPlaying) => PlaybackState(
+      (position, duration, isPlaying) => PlaybackStateModel(
         position: position,
         duration: duration ?? Duration.zero,
         isPlaying: isPlaying,
@@ -32,74 +38,37 @@ class AudioPlayerService {
     );
   }
 
-  Future<void> loadAudio(String filePath) async {
-    try {
-      if (filePath.startsWith('asset:')) {
-        // Nếu là nhạc asset, bỏ tiền tố 'asset:' và dùng setAsset
-        String cleanPath = filePath.replaceFirst('asset:', '');
-        await _audioPlayer.setAsset(cleanPath);
+  Future<void> loadAudio(String filePath, {MediaItem? item}) async {
+    if (item != null) {
+      await _handler.updateMediaItem(item);
+    } else {
+       if (filePath.startsWith('asset:')) {
+        await _handler.player.setAsset(filePath.replaceFirst('asset:', ''));
       } else {
-        // Nếu là nhạc trong máy, dùng setFilePath như bình thường
-        await _audioPlayer.setFilePath(filePath);
+        await _handler.player.setFilePath(filePath);
       }
-    } catch (e) {
-      throw Exception('Error loading audio: $e');
     }
   }
 
-  // Play
-  Future<void> play() async {
-    await _audioPlayer.play();
-  }
+  Future<void> play() => _handler.play();
+  Future<void> pause() => _handler.pause();
+  Future<void> stop() => _handler.stop();
+  Future<void> seek(Duration position) => _handler.seek(position);
+  Future<void> setVolume(double volume) => _handler.player.setVolume(volume);
+  Future<void> setLoopMode(LoopMode mode) => _handler.player.setLoopMode(mode);
+  Future<void> setShuffleModeEnabled(bool enabled) => _handler.player.setShuffleModeEnabled(enabled);
 
-  // Pause
-  Future<void> pause() async {
-    await _audioPlayer.pause();
-  }
-
-  // Stop
-  Future<void> stop() async {
-    await _audioPlayer.stop();
-  }
-
-  // Seek to position
-  Future<void> seek(Duration position) async {
-    await _audioPlayer.seek(position);
-  }
-
-  // Set volume (0.0 to 1.0)
-  Future<void> setVolume(double volume) async {
-    await _audioPlayer.setVolume(volume);
-  }
-
-  // Set speed (0.5 to 2.0)
-  Future<void> setSpeed(double speed) async {
-    await _audioPlayer.setSpeed(speed);
-  }
-
-  // Set loop mode
-  Future<void> setLoopMode(LoopMode loopMode) async {
-    await _audioPlayer.setLoopMode(loopMode);
-  }
-
-  // Set shuffle mode
-  Future<void> setShuffleModeEnabled(bool enabled) async {
-    await _audioPlayer.setShuffleModeEnabled(enabled);
-  }
-
-  // Dispose
   void dispose() {
-    _audioPlayer.dispose();
+    // Handler do hệ thống quản lý
   }
 }
 
-// Playback state model
-class PlaybackState {
+class PlaybackStateModel {
   final Duration position;
   final Duration duration;
   final bool isPlaying;
 
-  PlaybackState({
+  PlaybackStateModel({
     required this.position,
     required this.duration,
     required this.isPlaying,

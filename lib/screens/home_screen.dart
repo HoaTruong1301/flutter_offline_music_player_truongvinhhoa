@@ -41,7 +41,13 @@ class _HomeScreenState extends State<HomeScreen> {
       if (mounted) {
         final playlistProvider = context.read<PlaylistProvider>();
         await playlistProvider.loadAllSongs();
-        await playlistProvider.loadPlaylists(); // Ép buộc tải lại playlist khi vào Home
+        await playlistProvider.loadPlaylists(); 
+        
+        // Khôi phục phiên làm việc cũ
+        final audioProvider = context.read<AudioProvider>();
+        if (audioProvider.currentSong == null) {
+          await audioProvider.restoreLastSession(_songs);
+        }
       }
     }
 

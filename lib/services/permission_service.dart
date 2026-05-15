@@ -5,6 +5,11 @@ class PermissionService {
   // Yêu cầu quyền tổng hợp
   Future<bool> requestPermissions() async {
     if (Platform.isAndroid) {
+      // Xin quyền thông báo cho Android 13+ (Bắt buộc để hiện trình điều khiển nhạc)
+      if (await _isAndroid13OrHigher()) {
+        await Permission.notification.request();
+      }
+
       if (await _isAndroid13OrHigher()) {
         var status = await Permission.audio.status;
         if (status.isGranted) return true;

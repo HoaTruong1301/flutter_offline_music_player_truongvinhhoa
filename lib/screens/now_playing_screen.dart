@@ -335,7 +335,7 @@ class _NowPlayingScreenState extends State<NowPlayingScreen> {
                           const SizedBox(height: 40),
 
                           // Progress Bar
-                          StreamBuilder<PlaybackState>(
+                          StreamBuilder<PlaybackStateModel>(
                             stream: provider.playbackStateStream,
                             builder: (context, snapshot) {
                               final state = snapshot.data;

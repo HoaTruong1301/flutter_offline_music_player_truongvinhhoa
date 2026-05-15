@@ -9,6 +9,9 @@ class StorageService {
   static const String _repeatKey = 'repeat_mode';
   static const String _volumeKey = 'volume';
   static const String _recentlyPlayedKey = 'recently_played';
+  static const String _lastPositionKey = 'last_position';
+  static const String _lastIndexKey = 'last_index';
+  static const String _lastPlaylistKey = 'last_playlist';
 
   // Save playlists
   Future<void> savePlaylists(List<PlaylistModel> playlists) async {
@@ -42,6 +45,42 @@ class StorageService {
   Future<String?> getLastPlayed() async {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString(_lastPlayedKey);
+  }
+
+  // Save last position in milliseconds
+  Future<void> saveLastPosition(int positionMs) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastPositionKey, positionMs);
+  }
+
+  // Get last position
+  Future<int> getLastPosition() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastPositionKey) ?? 0;
+  }
+
+  // Save last index
+  Future<void> saveLastIndex(int index) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(_lastIndexKey, index);
+  }
+
+  // Get last index
+  Future<int> getLastIndex() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(_lastIndexKey) ?? 0;
+  }
+
+  // Save last playlist (list of song IDs)
+  Future<void> saveLastPlaylist(List<String> songIds) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_lastPlaylistKey, songIds);
+  }
+
+  // Get last playlist
+  Future<List<String>> getLastPlaylist() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_lastPlaylistKey) ?? [];
   }
 
   // Save shuffle state

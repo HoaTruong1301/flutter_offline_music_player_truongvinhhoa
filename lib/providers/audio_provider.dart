@@ -1,6 +1,7 @@
 // lib/providers/audio_provider.dart
 import 'package:flutter/material.dart';
 import 'package:just_audio/just_audio.dart';
+import 'package:audio_service/audio_service.dart';
 import '../models/song_model.dart';
 import '../services/audio_player_service.dart';
 import '../services/storage_service.dart';
@@ -29,7 +30,7 @@ class AudioProvider extends ChangeNotifier {
   Stream<Duration?> get durationStream => _audioService.durationStream;
   Stream<Duration> get bufferedPositionStream => _audioService.bufferedPositionStream;
   Stream<bool> get playingStream => _audioService.playingStream;
-  Stream<PlaybackState> get playbackStateStream => _audioService.playbackStateStream;
+  Stream<PlaybackStateModel> get playbackStateStream => _audioService.playbackStateStream;
   Stream<PlayerState> get playerStateStream => _audioService.playerStateStream;
   Stream<LoopMode> get loopModeStream => _audioService.loopModeStream;
   Stream<bool> get shuffleModeEnabledStream => _audioService.shuffleModeEnabledStream;
@@ -43,6 +44,42 @@ class AudioProvider extends ChangeNotifier {
 
     final volume = await _storageService.getVolume();
     await _audioService.setVolume(volume);
+
+    // Lắng nghe vị trí để lưu lại định kỳ
+    _audioService.positionStream.listen((position) {
+      if (_audioService.isPlaying) {
+        _storageService.saveLastPosition(position.inMilliseconds);
+      }
+    });
+  }
+
+  // Khôi phục trạng thái cũ
+  Future<void> restoreLastSession(List<SongModel> allSongs) async {
+    final lastSongId = await _storageService.getLastPlayed();
+    if (lastSongId == null) return;
+
+    final lastPlaylistIds = await _storageService.getLastPlaylist();
+    final lastIndex = await _storageService.getLastIndex();
+    final lastPositionMs = await _storageService.getLastPosition();
+
+    if (lastPlaylistIds.isNotEmpty) {
+      // Tìm lại playlist cũ từ danh sách tất cả bài hát
+      List<SongModel> restoredPlaylist = [];
+      for (var id in lastPlaylistIds) {
+        final song = allSongs.cast<SongModel?>().firstWhere((s) => s?.id == id, orElse: () => null);
+        if (song != null) restoredPlaylist.add(song);
+      }
+
+      if (restoredPlaylist.isNotEmpty) {
+        _playlist = restoredPlaylist;
+        _currentIndex = lastIndex < _playlist.length ? lastIndex : 0;
+        
+        final song = _playlist[_currentIndex];
+        await _audioService.loadAudio(song.filePath);
+        await _audioService.seek(Duration(milliseconds: lastPositionMs));
+        notifyListeners();
+      }
+    }
   }
 
   // Set playlist
@@ -50,6 +87,10 @@ class AudioProvider extends ChangeNotifier {
     _playlist = songs;
     _currentIndex = startIndex;
     await _playSongAtIndex(_currentIndex);
+    
+    // Lưu playlist hiện tại để khôi phục sau này
+    await _storageService.saveLastPlaylist(_playlist.map((s) => s.id).toList());
+    
     notifyListeners();
   }
 
@@ -60,12 +101,23 @@ class AudioProvider extends ChangeNotifier {
     _currentIndex = index;
     final song = _playlist[index];
 
-    await _audioService.loadAudio(song.filePath);
+    // Tạo MediaItem để hiển thị thông báo
+    final mediaItem = MediaItem(
+      id: song.filePath,
+      album: song.album ?? "Unknown Album",
+      title: song.title,
+      artist: song.artist,
+      duration: song.duration,
+      artUri: song.albumArt != null ? Uri.parse(song.albumArt!) : null,
+    );
+
+    await _audioService.loadAudio(song.filePath, item: mediaItem);
     await _audioService.play();
     
     // Persistence
     await _storageService.saveLastPlayed(song.id);
     await _storageService.saveRecentlyPlayed(song.id);
+    await _storageService.saveLastIndex(_currentIndex);
 
     notifyListeners();
   }
